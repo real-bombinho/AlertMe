@@ -16,6 +16,16 @@
 #include <WiFiClientSecure.h>
 #include <ArduinoJson.h>          //https://github.com/bblanchon/ArduinoJson
 
+static const char ErrorSendingMessage[]   PROGMEM = "Sending message error";
+static const char ErrorSMTPQuit[]         PROGMEM = "SMTP QUIT error";
+static const char ErrorNotConnected[]     PROGMEM = "Could not connect to mail server";
+static const char ErrorConnection[]       PROGMEM = "Connection Error";
+static const char ErrorIdentification[]   PROGMEM = "Identification error";
+static const char ErrorAuthentification[] PROGMEM = "SMTP AUTH error";
+static const char ErrorSMTPData[]         PROGMEM = "SMTP DATA error";
+static const char ErrorNotSent[]          PROGMEM = "Sending message error";
+static const char ErrorSMTPTimeout[]      PROGMEM = "SMTP Response TIMEOUT!";
+
 class AlertMe{
 	public:
 		AlertMe();
