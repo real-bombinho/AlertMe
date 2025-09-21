@@ -29,7 +29,7 @@ uint16_t smtp_port = 0;
 char smtp_server[40];
 bool needs_save = false;
 bool alert_debug = false;
-char* last_error = "";
+char last_error[35] = "";
 
 bool stmp_connect_fail = false;
 
@@ -40,7 +40,10 @@ void DEBUG_AM(Generic text) {
     Serial.println(text);
   }
 }
-									
+
+#define DEBUG_AMF(f_, ...) if (alert_debug) printf((f_), ##__VA_ARGS__)
+#define FV(s) (reinterpret_cast<const __FlashStringHelper*>(s))
+
 AlertMe::AlertMe(){}
 
 // BASE64 -----------------------------------------------------------
@@ -116,12 +119,12 @@ class Gsender
   protected:
     Gsender();
   private:
-    const char* _error = nullptr;
+    const __FlashStringHelper* _error = nullptr;
     char* _subject = nullptr;
     String _serverResponse;
     static Gsender* _instance;
     bool AwaitSMTPResponse(WiFiClientSecure &client, const String &resp = "", uint16_t timeOut = 10000);
-
+    void setError(const __FlashStringHelper* err);
   public:
     static Gsender* Instance();
     Gsender* Subject(const char* subject);
@@ -129,7 +132,7 @@ class Gsender
     bool Send(const String &to, const String &message);
     bool TestConnection(char* server, uint16_t port);
     String getLastResponse();
-    const char* getError();
+    void getError();
 };
 
 Gsender* Gsender::_instance = 0;
@@ -159,7 +162,7 @@ bool Gsender::AwaitSMTPResponse(WiFiClientSecure &client, const String &resp, ui
   while (!client.available())
   {
     if (millis() > (ts + timeOut)) {
-      _error = "SMTP Response TIMEOUT!";
+      setError(FV(ErrorSMTPTimeout));
       return false;
     }
   }
@@ -174,9 +177,14 @@ String Gsender::getLastResponse()
   return _serverResponse;
 }
 
-const char* Gsender::getError()
-{
-  return _error;
+void Gsender::getError()
+{ 
+  // Copy from PROGMEM to RAM
+  strncpy_P(last_error, reinterpret_cast<const char*>(_error), sizeof(last_error));  
+}
+
+void Gsender::setError(const __FlashStringHelper* err) {
+  _error = err;
 }
 
 bool Gsender::Send(const String &to, const String &message)
@@ -185,18 +193,18 @@ bool Gsender::Send(const String &to, const String &message)
   DEBUG_AM("Connecting to :");
   DEBUG_AM(smtp_server);
   if (!client.connect(smtp_server, smtp_port)) {
-    _error = "Could not connect to mail server";
+    setError(FV(ErrorNotConnected));
     return false;
   }
   if (!AwaitSMTPResponse(client, "220")) {
-    _error = "Connection Error";
+    setError(FV(ErrorConnection));
     return false;
   }
 
   DEBUG_AM("HELO friend:");
   client.println("HELO friend");
   if (!AwaitSMTPResponse(client, "250")) {
-    _error = "identification error";
+    setError(FV(ErrorIdentification));
     return false;
   }
 
@@ -215,7 +223,7 @@ bool Gsender::Send(const String &to, const String &message)
 
   client.println(encode64(EMAIL_PASSWORD));
   if (!AwaitSMTPResponse(client, "235")) {
-    _error = "SMTP AUTH error";
+    setError(FV(ErrorAuthentification));
     return false;
   }
 
@@ -232,7 +240,7 @@ bool Gsender::Send(const String &to, const String &message)
   DEBUG_AM("DATA:");
   client.println("DATA");
   if (!AwaitSMTPResponse(client, "354")) {
-    _error = "SMTP DATA error";
+    setError(FV(ErrorSMTPData));
     return false;
   }
 
@@ -250,12 +258,12 @@ bool Gsender::Send(const String &to, const String &message)
   client.println(body);
   client.println(".");
   if (!AwaitSMTPResponse(client, "250")) {
-    _error = "Sending message error";
+    setError(FV(ErrorNotSent));
     return false;
   }
   client.println("QUIT");
   if (!AwaitSMTPResponse(client, "221")) {
-    _error = "SMTP QUIT error";
+    setError(FV(ErrorSMTPQuit));
     return false;
   }
   return true;
@@ -266,18 +274,18 @@ bool Gsender::TestConnection(char* server, uint16_t port) {
   DEBUG_AM("Connecting to :");
   DEBUG_AM(server);
   if (!client.connect(server, port)) {
-    _error = "Could not connect to mail server";
+    setError(FV(ErrorNotConnected));
     return false;
   }
   if (!AwaitSMTPResponse(client, "220")) {
-    _error = "Connection Error";
+    setError(FV(ErrorConnection));
     return false;
   }
 
   DEBUG_AM("HELO friend:");
   client.println("HELO friend");
   if (!AwaitSMTPResponse(client, "250")) {
-    _error = "identification error";
+    setError(FV(ErrorIdentification));
     return false;
   }
 
@@ -298,7 +306,7 @@ bool Gsender::TestConnection(char* server, uint16_t port) {
 
   client.println(encode64(EMAIL_PASSWORD));
   if (!AwaitSMTPResponse(client, "235")) {
-    _error = "SMTP AUTH error";
+    setError(FV(ErrorAuthentification));
     return false;
   }
 
