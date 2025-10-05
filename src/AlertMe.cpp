@@ -466,7 +466,7 @@ const char* AlertMe::send(String subject, String message, String dest) {
     return "SENT";
   }
   else {
-    strcpy(last_error,gsender->getError());
+    getError();
 
     DEBUG_AM("Message sending failed. (");
 	DEBUG_AM(last_error);
